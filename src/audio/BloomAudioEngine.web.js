@@ -7,6 +7,7 @@ export class BloomAudioEngine {
     this.ctx = null;
     this.masterGain = null;
     this._unlocked = false;
+    this._resumePromise = null;
   }
 
   _ensureContext() {
@@ -17,27 +18,52 @@ export class BloomAudioEngine {
       this.masterGain.gain.value = 0.45;
       this.masterGain.connect(this.ctx.destination);
     }
-    if (this.ctx.state === 'suspended') {
-      this.ctx.resume();
-    }
-    if (!this._unlocked) {
-      this._unlockiOS();
-    }
+    if (this.ctx.state === 'suspended') this._resumeContext();
     return this.ctx;
   }
 
+  _resumeContext() {
+    if (!this.ctx || this.ctx.state === 'running') return Promise.resolve();
+    if (!this._resumePromise) {
+      this._resumePromise = this.ctx.resume()
+        .then(() => {
+          this._unlockiOS();
+        })
+        .catch(() => {})
+        .finally(() => {
+          this._resumePromise = null;
+        });
+    }
+    return this._resumePromise;
+  }
+
   _unlockiOS() {
-    this._unlocked = true;
-    const buf = this.ctx.createBuffer(1, 1, this.ctx.sampleRate);
-    const src = this.ctx.createBufferSource();
-    src.buffer = buf;
-    src.connect(this.ctx.destination);
-    src.start(0);
-    src.stop(this.ctx.currentTime + 0.001);
+    if (this._unlocked || !this.ctx || this.ctx.state !== 'running') return;
+    try {
+      const buf = this.ctx.createBuffer(1, 1, this.ctx.sampleRate);
+      const src = this.ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(this.ctx.destination);
+      src.start(0);
+      src.stop(this.ctx.currentTime + 0.001);
+      this._unlocked = true;
+    } catch (_) {}
+  }
+
+  prime() {
+    this._ensureContext();
+    return this._resumeContext();
   }
 
   triggerVoice(descriptor, held = true) {
     const ctx = this._ensureContext();
+    if (ctx.state !== 'running') {
+      this._resumeContext().then(() => {
+        if (this.ctx?.state === 'running') this.triggerVoice(descriptor, held);
+      });
+      return this.getStatus();
+    }
+    this._unlockiOS();
     const now = ctx.currentTime;
 
     const pitchHz = Number(descriptor.pitchHz) || 440;

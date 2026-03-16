@@ -23,6 +23,10 @@ export class BloomAudioEngine {
     return this.ctx;
   }
 
+  prime() {
+    this._ensureContext();
+  }
+
   triggerVoice(descriptor, held = true) {
     const ctx = this._ensureContext();
     const now = ctx.currentTime;

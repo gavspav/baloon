@@ -338,6 +338,7 @@ export default function App() {
         beginPinch(touches);
         return;
       }
+      audioEngineRef.current.prime?.();
       const touch = touches[0] || event.nativeEvent;
       const point = pointFromTouch(touch);
       const spawnId = triggerSpawn(point, 50);
