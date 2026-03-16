@@ -6,6 +6,7 @@ export class BloomAudioEngine {
     this.mode = 'fm-synth';
     this.ctx = null;
     this.masterGain = null;
+    this._unlocked = false;
   }
 
   _ensureContext() {
@@ -19,7 +20,20 @@ export class BloomAudioEngine {
     if (this.ctx.state === 'suspended') {
       this.ctx.resume();
     }
+    if (!this._unlocked) {
+      this._unlockiOS();
+    }
     return this.ctx;
+  }
+
+  _unlockiOS() {
+    this._unlocked = true;
+    const buf = this.ctx.createBuffer(1, 1, this.ctx.sampleRate);
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(this.ctx.destination);
+    src.start(0);
+    src.stop(this.ctx.currentTime + 0.001);
   }
 
   triggerVoice(descriptor, held = true) {

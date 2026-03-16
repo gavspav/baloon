@@ -5,7 +5,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   PanResponder,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -141,6 +140,7 @@ export default function App() {
   const [spawns, setSpawns] = useState([]);
   const [stage, setStage] = useState({ width: 0, height: 0 });
   const [importStatus, setImportStatus] = useState('Load a JSON export from old_art_app or start from the bundled demo scene.');
+  const [showPanel, setShowPanel] = useState(false);
   const [lastVoiceSummary, setLastVoiceSummary] = useState('No voices triggered yet.');
   const [engineStatus, setEngineStatus] = useState(audioEngineRef.current.getStatus());
 
@@ -406,137 +406,154 @@ export default function App() {
   })), [spawns]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="light" />
-      <View style={styles.screen}>
-        <View style={styles.header}>
-          <View style={styles.headerCopy}>
-            <Text style={styles.kicker}>Bloom</Text>
-            <Text style={styles.title}>Tap to grow a moving shape and a mapped voice descriptor.</Text>
-            <Text style={styles.subtitle}>{importStatus}</Text>
-          </View>
-          <View style={styles.headerButtons}>
-            <Pressable style={styles.primaryButton} onPress={handleImportJson}>
-              <Text style={styles.primaryButtonText}>Load JSON</Text>
-            </Pressable>
-            <Pressable style={styles.secondaryButton} onPress={restoreDemo}>
-              <Text style={styles.secondaryButtonText}>Demo Scene</Text>
-            </Pressable>
-            <Pressable style={styles.secondaryButton} onPress={clearShapes}>
-              <Text style={styles.secondaryButtonText}>Clear</Text>
-            </Pressable>
-          </View>
-        </View>
-
-        <View
-          style={[styles.stageCard, { backgroundColor: scene.backgroundColor || '#08121A' }]}
-          onLayout={(event) => {
-            const { width, height } = event.nativeEvent.layout;
-            setStage({ width, height });
-          }}
-          {...stageResponder.panHandlers}
-        >
-          <Svg width="100%" height="100%" viewBox={`0 0 ${Math.max(1, stage.width)} ${Math.max(1, stage.height)}`}>
-            <Rect x="0" y="0" width={Math.max(1, stage.width)} height={Math.max(1, stage.height)} fill={scene.backgroundColor || '#08121A'} />
-            <Defs>
-              {gradientStops.map((gradient) => (
-                <LinearGradient key={gradient.id} id={gradient.id} x1="0%" y1="0%" x2="100%" y2="100%">
-                  {gradient.colors.map((color, index) => (
-                    <Stop
-                      key={`${gradient.id}-${color}-${index}`}
-                      offset={`${gradient.colors.length === 1 ? 0 : (index / (gradient.colors.length - 1)) * 100}%`}
-                      stopColor={color}
-                      stopOpacity={1}
-                    />
-                  ))}
-                </LinearGradient>
-              ))}
-            </Defs>
-            {spawns.map((spawn) => (
-              <Path
-                key={spawn.id}
-                d={buildShapePath(spawn)}
-                fill={`url(#fill-${spawn.id})`}
-                opacity={spawn.renderOpacity || spawn.opacity || 1}
-              />
+    <View style={styles.fullScreen}>
+      <StatusBar hidden />
+      <View
+        style={[styles.stage, { backgroundColor: scene.backgroundColor || '#08121A' }]}
+        onLayout={(event) => {
+          const { width, height } = event.nativeEvent.layout;
+          setStage({ width, height });
+        }}
+        {...stageResponder.panHandlers}
+      >
+        <Svg width="100%" height="100%" viewBox={`0 0 ${Math.max(1, stage.width)} ${Math.max(1, stage.height)}`}>
+          <Rect x="0" y="0" width={Math.max(1, stage.width)} height={Math.max(1, stage.height)} fill={scene.backgroundColor || '#08121A'} />
+          <Defs>
+            {gradientStops.map((gradient) => (
+              <LinearGradient key={gradient.id} id={gradient.id} x1="0%" y1="0%" x2="100%" y2="100%">
+                {gradient.colors.map((color, index) => (
+                  <Stop
+                    key={`${gradient.id}-${color}-${index}`}
+                    offset={`${gradient.colors.length === 1 ? 0 : (index / (gradient.colors.length - 1)) * 100}%`}
+                    stopColor={color}
+                    stopOpacity={1}
+                  />
+                ))}
+              </LinearGradient>
             ))}
-          </Svg>
-          <View style={styles.stageHintWrap} pointerEvents="none">
-            <Text style={styles.stageHint}>Hold to grow size, lifetime, attack, and release. Pinch any live shape directly to stretch it and push its timbre mapping.</Text>
-          </View>
-        </View>
-
-        <ScrollView contentContainerStyle={styles.footer}>
-          <View style={styles.panel}>
-            <Text style={styles.panelLabel}>Scene</Text>
-            <Text style={styles.panelValue}>{scene.name}</Text>
-            <Text style={styles.panelMeta}>{scene.layers.length} style layers, random per tap</Text>
-            <Text style={styles.panelMeta}>Background {scene.backgroundColor}</Text>
-          </View>
-          <View style={styles.panel}>
-            <Text style={styles.panelLabel}>Interaction Map</Text>
-            <Text style={styles.panelValue}>Y = pitch in {scene.scale?.name || 'scale'}</Text>
-            <Text style={styles.panelMeta}>X = filter cutoff</Text>
-            <Text style={styles.panelMeta}>Press = size, lifetime, attack, release</Text>
-          </View>
-          <View style={styles.panel}>
-            <Text style={styles.panelLabel}>Voice Engine</Text>
-            <Text style={styles.panelValue}>{engineStatus.mode}</Text>
-            <Text style={styles.panelMeta}>{engineStatus.activeVoices} active descriptors</Text>
-            <Text style={styles.panelMeta}>{lastVoiceSummary}</Text>
-          </View>
-          <View style={styles.panelWide}>
-            <Text style={styles.panelLabel}>Current Limit</Text>
-            <Text style={styles.panelMeta}>This scaffold implements the import pipeline, random style spawning, motion, pitch/filter mapping, and permanent pinch deformation.</Text>
-            <Text style={styles.panelMeta}>Actual low-latency FM sound generation is intentionally abstracted behind `BloomAudioEngine` and still needs the native audio spike we planned.</Text>
-          </View>
-        </ScrollView>
+          </Defs>
+          {spawns.map((spawn) => (
+            <Path
+              key={spawn.id}
+              d={buildShapePath(spawn)}
+              fill={`url(#fill-${spawn.id})`}
+              opacity={spawn.renderOpacity || spawn.opacity || 1}
+            />
+          ))}
+        </Svg>
       </View>
-    </SafeAreaView>
+
+      <Pressable
+        style={styles.helpButton}
+        onPress={() => setShowPanel((v) => !v)}
+        hitSlop={8}
+      >
+        <Text style={styles.helpButtonText}>{showPanel ? '\u2715' : '\u2699'}</Text>
+      </Pressable>
+
+      {showPanel && (
+        <View style={styles.overlay}>
+          <ScrollView contentContainerStyle={styles.overlayScroll}>
+            <Text style={styles.overlayTitle}>Bloom</Text>
+            <Text style={styles.overlayHint}>Tap to create shapes and sound. Hold longer for bigger shapes with richer envelopes. Pinch a live shape to stretch and shift its timbre.</Text>
+
+            <View style={styles.overlayButtons}>
+              <Pressable style={styles.primaryButton} onPress={handleImportJson}>
+                <Text style={styles.primaryButtonText}>Load JSON</Text>
+              </Pressable>
+              <Pressable style={styles.secondaryButton} onPress={restoreDemo}>
+                <Text style={styles.secondaryButtonText}>Demo Scene</Text>
+              </Pressable>
+              <Pressable style={styles.secondaryButton} onPress={clearShapes}>
+                <Text style={styles.secondaryButtonText}>Clear</Text>
+              </Pressable>
+            </View>
+
+            <Text style={styles.overlayMeta}>{importStatus}</Text>
+
+            <View style={styles.panel}>
+              <Text style={styles.panelLabel}>Scene</Text>
+              <Text style={styles.panelValue}>{scene.name}</Text>
+              <Text style={styles.panelMeta}>{scene.layers.length} style layers, random per tap</Text>
+            </View>
+            <View style={styles.panel}>
+              <Text style={styles.panelLabel}>Mapping</Text>
+              <Text style={styles.panelMeta}>Y = pitch in {scene.scale?.name || 'scale'}</Text>
+              <Text style={styles.panelMeta}>X = filter cutoff</Text>
+              <Text style={styles.panelMeta}>Hold = size, lifetime, envelope</Text>
+            </View>
+            <View style={styles.panel}>
+              <Text style={styles.panelLabel}>Voice Engine</Text>
+              <Text style={styles.panelValue}>{engineStatus.mode}</Text>
+              <Text style={styles.panelMeta}>{engineStatus.activeVoices} active voices</Text>
+              <Text style={styles.panelMeta}>{lastVoiceSummary}</Text>
+            </View>
+          </ScrollView>
+        </View>
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  fullScreen: {
     flex: 1,
-    backgroundColor: '#050816',
+    backgroundColor: '#08121A',
   },
-  screen: {
-    flex: 1,
-    backgroundColor: '#050816',
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 18,
-    gap: 14,
+  stage: {
+    ...StyleSheet.absoluteFillObject,
   },
-  header: {
-    paddingVertical: 8,
-    gap: 12,
+  helpButton: {
+    position: 'absolute',
+    top: 48,
+    right: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
   },
-  headerCopy: {
-    gap: 4,
+  helpButtonText: {
+    color: '#e2e8f0',
+    fontSize: 22,
   },
-  kicker: {
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(5,8,22,0.88)',
+    zIndex: 5,
+    paddingTop: 100,
+    paddingHorizontal: 20,
+    paddingBottom: 32,
+  },
+  overlayScroll: {
+    gap: 16,
+    paddingBottom: 40,
+  },
+  overlayTitle: {
     color: '#7dd3fc',
-    fontSize: 12,
-    letterSpacing: 1.4,
-    textTransform: 'uppercase',
-  },
-  title: {
-    color: '#f8fafc',
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: '700',
-    lineHeight: 29,
   },
-  subtitle: {
-    color: '#bfd6e7',
-    fontSize: 14,
-    lineHeight: 20,
+  overlayHint: {
+    color: '#d6edf9',
+    fontSize: 15,
+    lineHeight: 22,
   },
-  headerButtons: {
+  overlayButtons: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
+  },
+  overlayMeta: {
+    color: '#bfd6e7',
+    fontSize: 13,
+    lineHeight: 18,
   },
   primaryButton: {
     backgroundColor: '#f97316',
@@ -560,65 +577,29 @@ const styles = StyleSheet.create({
     color: '#e2e8f0',
     fontWeight: '600',
   },
-  stageCard: {
-    flex: 1,
-    minHeight: 320,
-    borderRadius: 30,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    position: 'relative',
-  },
-  stageHintWrap: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    bottom: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 18,
-    backgroundColor: 'rgba(5,8,22,0.72)',
-  },
-  stageHint: {
-    color: '#d6edf9',
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  footer: {
-    gap: 12,
-    paddingBottom: 2,
-  },
   panel: {
-    borderRadius: 24,
-    padding: 16,
-    backgroundColor: '#0d1528',
+    borderRadius: 20,
+    padding: 14,
+    backgroundColor: 'rgba(13,21,40,0.8)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.06)',
     gap: 4,
   },
-  panelWide: {
-    borderRadius: 24,
-    padding: 16,
-    backgroundColor: '#111d36',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-    gap: 6,
-  },
   panelLabel: {
     color: '#7dd3fc',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 1.2,
   },
   panelValue: {
     color: '#f8fafc',
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '700',
   },
   panelMeta: {
     color: '#bfd6e7',
-    fontSize: 14,
-    lineHeight: 19,
+    fontSize: 13,
+    lineHeight: 18,
   },
 });
